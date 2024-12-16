@@ -1,0 +1,44 @@
+on:
+  poll:
+    url: https://macaumarksix.com/api/live2
+    deduplicationKey: expect
+jobs:
+  print:
+    name: Print
+    runs-on: ubuntu-latest     
+    steps:
+      # - name: Checkout repository
+        # uses: actions/checkout@v2 
+        
+      # - name: Print Outputs 
+        # id： Print_Outputs
+        # env:
+          # openCode: ${{ on.poll.outputs.openCode }}
+          # zodiac: ${{ on.poll.outputs.zodiac }}
+          # openTime: ${{ on.poll.outputs.openTime }}
+          # wave: ${{ on.poll.outputs.wave }}    
+        # run: |     
+           # # 将数据设置为输出和环境变量
+          # echo "::set-output name=openCode::$openCode"
+          # echo "::set-output name=zodiac::$zodiac"
+          # echo "::set-output name=openTime::$openTime"
+          # echo "::set-output name=wave::$wave"
+          
+          # echo "openCode: $openCode"
+          # echo "zodiac: $zodiac"
+          # echo "openTime: $openTime"
+          # echo "wave: $wave"
+      - name: Send Bark Message
+        run: |        
+          key1="${{ on.poll.outputs.openCode }}"
+          key2="${{ on.poll.outputs.zodiac }}"
+          key3="${{ on.poll.outputs.openTime }}"
+          key4="${{ on.poll.outputs.wave }}"
+          # 定义目标 URL 列表
+          urls=("https://api.day.app/H9nYt9PJbr6LcBXYaiWPTU/")
+          # 循环发送请求到每个 URL
+          for url in "${urls[@]}"
+          do
+            echo "Sending data to $url?key1=$key1&key2=$key2&key3=$key3&key4=$key4"
+            curl -s "$url?key1=$key1&key2=$key2&key3=$key3&key4=$key4"
+          done
