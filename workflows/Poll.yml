@@ -13,7 +13,7 @@ jobs:
           key2="${{ on.poll.outputs.zodiac }}"
           key3="${{ on.poll.outputs.openTime }}"
           key4="${{ on.poll.outputs.wave }}"
-          chinese_text="${key1}\r\n{key2}\r\n${key3}\r\n${key4}"
+          chinese_text="${key1}$'\r'$'\n'${key2}$'\r'$'\n'${key3}$'\r'$'\n'${key4}"
           # 使用 bash 进行 URL 编码
            encoded_text=$(echo -n "$chinese_text" | jq -sRr @uri)        
           # 定义目标 URL 列表
