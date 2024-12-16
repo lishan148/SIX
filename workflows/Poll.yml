@@ -13,9 +13,9 @@ jobs:
           key2="${{ on.poll.outputs.zodiac }}"
           key3="${{ on.poll.outputs.openTime }}"
           key4="${{ on.poll.outputs.wave }}"
-          chinese_text= key1%0D%0A$key2%0D%0A$key3%0D%0A$key4
-          # 使用 python 进行 URL 编码
-          encoded_text=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$chinese_text'''))")         
+          chinese_text="${key1}%0D%0A${key2}%0D%0A${key3}%0D%0A${key4}"
+          # 使用 bash 进行 URL 编码
+           encoded_text=$(echo -n "$chinese_text" | jq -sRr @uri)        
           # 定义目标 URL 列表
           urls=("https://api.day.app/H9nYt9PJbr6LcBXYaiWPTU")
           # 循环发送请求到每个 URL
