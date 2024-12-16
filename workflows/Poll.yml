@@ -1,7 +1,7 @@
 on:
   poll:
-    url: https://jsonplaceholder.typicode.com/posts
-    deduplicationKey: id
+    url: https://macaumarksix.com/api/live2
+    deduplicationKey: expect
 jobs:
   print:
     name: Print
@@ -9,8 +9,12 @@ jobs:
     steps:
       - name: Print Outputs
         env:
-          title: ${{ on.poll.outputs.title }}
-          body: ${{ on.poll.outputs.body }}
+          openCode: ${{ on.poll.outputs.openCode }}
+          zodiac: ${{ on.poll.outputs.zodiac }}
+          openTime: ${{ on.poll.outputs.openTime }}
+          wave: ${{ on.poll.outputs.wave }}         
         run: |
-          echo "title: $title"
-          echo "body: $body"
+          echo "openCode: $openCode"
+          echo "zodiac: $zodiac"
+          echo "openTime: $openTime"
+          echo "wave: $wave"
