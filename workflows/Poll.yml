@@ -12,6 +12,9 @@ jobs:
       openTime: ${{ on.poll.outputs.openTime }}
       wave: ${{ on.poll.outputs.wave }}       
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2 
+        
       - name: Print Outputs      
         run: |
           echo "openCode: $openCode"
