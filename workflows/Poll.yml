@@ -6,15 +6,29 @@ jobs:
   print:
     name: Print
     runs-on: ubuntu-latest
+    env:
+      openCode: ${{ on.poll.outputs.openCode }}
+      zodiac: ${{ on.poll.outputs.zodiac }}
+      openTime: ${{ on.poll.outputs.openTime }}
+      wave: ${{ on.poll.outputs.wave }}       
     steps:
-      - name: Print Outputs
-        env:
-          openCode: ${{ on.poll.outputs.openCode }}
-          zodiac: ${{ on.poll.outputs.zodiac }}
-          openTime: ${{ on.poll.outputs.openTime }}
-          wave: ${{ on.poll.outputs.wave }}         
+      - name: Print Outputs      
         run: |
           echo "openCode: $openCode"
           echo "zodiac: $zodiac"
           echo "openTime: $openTime"
           echo "wave: $wave"
+      - name: Send Bark Message
+        run: |        
+          key1="${{ env.openCode }}"
+          key2="${{ env.zodiac }}"
+          key3="${{ env.openTime }}"
+          key4="${{ env.wave }}"
+          # 定义目标 URL 列表
+          urls=("https://api.day.app/H9nYt9PJbr6LcBXYaiWPTU/")
+          # 循环发送请求到每个 URL
+          for url in "${urls[@]}"
+          do
+            echo "Sending data to $url?key1=$key1&key2=$key2&key3=$key3&key4=$key4"
+            curl -s "$url?key1=$key1&key2=$key2&key3=$key3&key4=$key4"
+          done
