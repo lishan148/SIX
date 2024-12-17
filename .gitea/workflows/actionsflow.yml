@@ -18,87 +18,92 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2. Restore Cache for Dependencies
-      - name: Restore Cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache
-          key: ${{ runner.os }}-cache-${{ hashFiles('**/*') }}
-          restore-keys: |
-            ${{ runner.os }}-cache-
-
-      # 3. Install Required Tools (if necessary)
-      - name: Install jq and curl
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq curl
-
-      # 4. Install Python Dependencies
-      - name: Set up Python and Install Dependencies
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install requests
-
-      # 5. Fetch API Response
+      # 2. 获取 API 响应数据
       - name: Fetch JSON from API
         id: fetch_json
         run: |
+          # 获取 JSON 数据
           response=$(curl -s https://macaumarksix.com/api/live2)
+          
+          # 打印响应数据，调试用
           echo "Response: $response"
+          
+          # 如果响应为空，输出错误提示
           if [[ -z "$response" ]]; then
             echo "Error: Empty response from API"
-            exit 1
+            exit 1  # 终止工作流，防止后续错误
           fi
-          key1=$(echo "$response" | jq -r '.[0].expect')
-          key2=$(echo "$response" | jq -r '.[0].openCode')
-          key3=$(echo "$response" | jq -r '.[0].zodiac')
-          key4=$(echo "$response" | jq -r '.[0].openTime')
-          key5=$(echo "$response" | jq -r '.[0].wave')
+
+          # 解析所需字段
+          key1=$(echo "$response" | jq -r '.[0].expect')      # 提取 expect 字段作为 key1
+          key2=$(echo "$response" | jq -r '.[0].openCode')    # 提取 openCode 字段作为 key2
+          key3=$(echo "$response" | jq -r '.[0].zodiac')      # 提取 zodiac 字段作为 key3
+          key4=$(echo "$response" | jq -r '.[0].openTime')    # 提取 openTime 字段作为 key4
+          key5=$(echo "$response" | jq -r '.[0].wave')        # 提取 wave 字段作为 key5
+
+          # 打印提取的字段，调试用
+          echo "key1 (expect): $key1"
+          echo "key2 (openCode): $key2"
+          echo "key3 (zodiac): $key3"
+          echo "key4 (openTime): $key4"
+          echo "key5 (wave): $key5"
+
+          # 保存当前字段到环境变量
           echo "KEY1=$key1" >> $GITHUB_ENV
           echo "KEY2=$key2" >> $GITHUB_ENV
           echo "KEY3=$key3" >> $GITHUB_ENV
           echo "KEY4=$key4" >> $GITHUB_ENV
           echo "KEY5=$key5" >> $GITHUB_ENV
 
-      # 6. Check for Changes in env_vars.json
+      # 3. 检查仓库中是否已有 `env_vars.json`，并与当前数据比较
       - name: Check if env_vars.json exists
         id: check_file
         run: |
+          # 检查是否存在 `env_vars.json` 文件
           if [ -f env_vars.json ]; then
+            echo "env_vars.json exists. Checking for changes..."
+            # 读取仓库中的 KEY1
             last_key1=$(jq -r '.KEY1' env_vars.json)
-            echo "LAST_KEY1=$last_key1" >> $GITHUB_ENV
+            echo "Last saved KEY1: $last_key1"
+            echo "Current KEY1: ${{ env.KEY1 }}"
           else
-            echo "LAST_KEY1=" >> $GITHUB_ENV
+            echo "env_vars.json does not exist. This is the first run."
+            last_key1=""
+          fi
+          echo "LAST_KEY1=$last_key1" >> $GITHUB_ENV
 
-      # 7. Commit Changes if Necessary
+      # 4. 如果 `expect` 变化，则提交更新
       - name: Commit and push changes if expect has changed
-        if: ${{ env.LAST_KEY1 != env.KEY1 }}
+        if: ${{ env.LAST_KEY1 != env.KEY1 }}  # 只有当 expect 变化时才执行
         run: |
+          # 如果 expect 变化，将新的数据保存到 env_vars.json 文件中
           echo "{\"KEY1\":\"${{ env.KEY1 }}\", \"KEY2\":\"${{ env.KEY2 }}\", \"KEY3\":\"${{ env.KEY3 }}\", \"KEY4\":\"${{ env.KEY4 }}\", \"KEY5\":\"${{ env.KEY5 }}\"}" > env_vars.json
+          
+          # 配置 Git 用户信息
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
+
+          # 添加、提交和推送更新到仓库
           git add env_vars.json
           git commit -m "Update env_vars.json with new KEY1: ${{ env.KEY1 }}"
           git push
 
-      # 8. Send Notification if Data Changed
+      # 5. 发送通知
       - name: Compare expect and Send Bark Message
-        if: ${{ env.LAST_KEY1 != env.KEY1 }}
+        if: ${{ env.LAST_KEY1 != env.KEY1 }}  # 只有在 expect 变化时才发送
         run: |
+          echo "expect has changed. Sending data to URL."
           message="${{ env.KEY1 }}\r\n${{ env.KEY2 }}\r\n${{ env.KEY3 }}\r\n${{ env.KEY4 }}\r\n${{ env.KEY5 }}"
+
+          # 使用 Python 进行 URL 编码（更稳定的编码方式）
           encoded_text=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$message'''))")
+
+          # 定义目标 URL 列表
           urls=("https://api.day.app/H9nYt9PJbr6LcBXYaiWPTU")
-          for url in "${urls[@]}"; do
+
+          # 循环发送请求到每个 URL
+          for url in "${urls[@]}"
+          do
+            echo "Sending data to $url/$encoded_text"
             curl -s "$url/$encoded_text"
           done
-
-      # 9. Save Cache for Future Runs
-      - name: Save Cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache
-          key: ${{ runner.os }}-cache-${{ hashFiles('**/*') }}
