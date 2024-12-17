@@ -32,10 +32,10 @@ jobs:
 
           # 解析所需字段
           key1=$(echo "$response" | jq -r '.[0].expect')      # 提取 expect 字段作为 key1
-          key2=$(echo "$response" | jq -r '.[0].openCode')      # 提取 openCode 字段作为 key2
-          key3=$(echo "$response" | jq -r '.[0].zodiac')        # 提取 zodiac 字段作为 key3
-          key4=$(echo "$response" | jq -r '.[0].openTime')      # 提取 openTime 字段作为 key4
-          key5=$(echo "$response" | jq -r '.[0].wave')          # 提取 wave 字段作为 key5
+          key2=$(echo "$response" | jq -r '.[0].openCode')    # 提取 openCode 字段作为 key2
+          key3=$(echo "$response" | jq -r '.[0].zodiac')      # 提取 zodiac 字段作为 key3
+          key4=$(echo "$response" | jq -r '.[0].openTime')    # 提取 openTime 字段作为 key4
+          key5=$(echo "$response" | jq -r '.[0].wave')        # 提取 wave 字段作为 key5
           
           # 打印提取的字段，调试用
           echo "key1 (expect): $key1"
@@ -52,28 +52,24 @@ jobs:
           echo "KEY5=$key5" >> $GITHUB_ENV
 
       # 2. 判断 expect 是否改变，若改变则执行下一步
-      - name: Compare and Send Bark Message
+      - name: Compare expect and Send Bark Message
         run: |
-          # 读取 Git 仓库中的上次保存的 expect 值
-          last_expect=$(git show HEAD:last_expect.txt || echo "first_run")
+          # 获取上一步保存的 key1 等值
+          echo "Last key1 (expect): ${{ env.LAST_KEY1 }}"
+          echo "Current key1 (expect): ${{ env.KEY1 }}"
 
-          # 获取当前的 expect 值
-          current_expect="${{ env.KEY1 }}"
-
-          echo "Last expect: $last_expect"
-          echo "Current expect: $current_expect"
-
-          # 如果 expect 改变，发送推送消息
-          if [[ "$last_expect" != "$current_expect" ]]; then
-            echo "Expect has changed. Sending data to URL."
+          # 如果 key1 (expect) 改变，发送推送
+          if [[ "${{ env.KEY1 }}" != "${{ env.LAST_KEY1 }}" ]]; then
+            echo "expect has changed. Sending data to URL."
 
             chinese_text="${{ env.KEY1 }}\r\n${{ env.KEY2 }}\r\n${{ env.KEY3 }}\r\n${{ env.KEY4 }}\r\n${{ env.KEY5 }}"
 
             # 使用 Python 进行 URL 编码（更稳定的编码方式）
             encoded_text=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$chinese_text'''))")        
-                
+
             # 定义目标 URL 列表
             urls=("https://api.day.app/H9nYt9PJbr6LcBXYaiWPTU")
+            
             # 循环发送请求到每个 URL
             for url in "${urls[@]}"
             do
@@ -83,14 +79,6 @@ jobs:
 
             # 更新 LAST_KEY1 变量，确保下次与当前 KEY1 比较
             echo "LAST_KEY1=${{ env.KEY1 }}" >> $GITHUB_ENV
-
-            # 将当前的 expect 值提交到 Git 仓库
-            echo "${{ env.KEY1 }}" > last_expect.txt
-            git config --global user.name "GitHub Actions"
-            git config --global user.email "actions@github.com"
-            git add last_expect.txt
-            git commit -m "Update last_expect"
-            git push
           else
-            echo "Expect has not changed. Skipping push."
+            echo "expect has not changed. Skipping push."
           fi
