@@ -24,6 +24,7 @@ jobs:
           # 循环发送请求到每个 URL
           for url in "${urls[@]}"
           do
+            echo "输出结果"
             echo "Sending data to $url/$encoded_text"
             curl -s "$url/$encoded_text"
           done
