@@ -14,7 +14,11 @@ jobs:
     name: Fetch and Send JSON Data Conditionally
     steps:
 
-      # 1. 获取 API 响应数据
+      # 1. Checkout the repository (Ensure the repository is cloned)
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. 获取 API 响应数据
       - name: Fetch JSON from API
         id: fetch_json
         run: |
@@ -51,7 +55,7 @@ jobs:
           echo "KEY4=$key4" >> $GITHUB_ENV
           echo "KEY5=$key5" >> $GITHUB_ENV
 
-      # 2. 检查仓库中是否已有 `env_vars.json`，并与当前数据比较
+      # 3. 检查仓库中是否已有 `env_vars.json`，并与当前数据比较
       - name: Check if env_vars.json exists
         id: check_file
         run: |
@@ -68,21 +72,23 @@ jobs:
           fi
           echo "LAST_KEY1=$last_key1" >> $GITHUB_ENV
 
-      # 3. 如果 `expect` 变化，则提交更新
+      # 4. 如果 `expect` 变化，则提交更新
       - name: Commit and push changes if expect has changed
         if: ${{ env.LAST_KEY1 != env.KEY1 }}  # 只有当 expect 变化时才执行
         run: |
           # 如果 expect 变化，将新的数据保存到 env_vars.json 文件中
           echo "{\"KEY1\":\"${{ env.KEY1 }}\", \"KEY2\":\"${{ env.KEY2 }}\", \"KEY3\":\"${{ env.KEY3 }}\", \"KEY4\":\"${{ env.KEY4 }}\", \"KEY5\":\"${{ env.KEY5 }}\"}" > env_vars.json
           
-          # 提交更新到仓库
+          # 配置 Git 用户信息
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
+
+          # 添加、提交和推送更新到仓库
           git add env_vars.json
           git commit -m "Update env_vars.json with new KEY1: ${{ env.KEY1 }}"
           git push
 
-      # 4. 发送通知
+      # 5. 发送通知
       - name: Compare expect and Send Bark Message
         if: ${{ env.LAST_KEY1 != env.KEY1 }}  # 只有在 expect 变化时才发送
         run: |
