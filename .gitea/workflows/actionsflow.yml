@@ -55,7 +55,7 @@ jobs:
       - name: Compare expect and Send Bark Message
         run: |
           # 获取上一步保存的 key1 等值
-          echo "Last key1 (expect): ${{ env.KEY1 }}"
+          echo "Last key1 (expect): ${{ env.LAST_KEY1 }}"
           echo "Current key1 (expect): ${{ env.KEY1 }}"
           
           # 如果 key1 (expect) 改变，发送推送
