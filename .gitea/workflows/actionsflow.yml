@@ -51,15 +51,31 @@ jobs:
           echo "KEY4=$key4" >> $GITHUB_ENV
           echo "KEY5=$key5" >> $GITHUB_ENV
 
+      # 2. 缓存上次的 expect 值
+      - name: Cache last_expect value
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ./last_expect.txt  # 缓存文件路径
+          key: "expect-${{ runner.os }}-${{ env.KEY1 }}"  # 使用 expect 字段作为缓存键
 
-      # 2. 判断 expect 是否改变，若改变则执行下一步
+      # 3. 判断 expect 是否改变，若改变则执行下一步
       - name: Compare and Send Bark Message
         run: |
-          # 获取上次保存的 expect 值
-          last_expect=$(cat last_expect.txt)
+          # 检查缓存是否存在
+          if [ -f "./last_expect.txt" ]; then
+            last_expect=$(cat ./last_expect.txt)
+          else
+            last_expect="first_run"
+          fi
+
+          # 获取当前的 expect 值
           current_expect="${{ env.KEY1 }}"
 
-          # 比较当前值和上次的值
+          echo "Last expect: $last_expect"
+          echo "Current expect: $current_expect"
+
+          # 如果 expect 改变，发送推送消息
           if [[ "$last_expect" != "$current_expect" ]]; then
             echo "Expect has changed. Sending data to URL."
 
@@ -77,16 +93,9 @@ jobs:
               curl -s "$url/$encoded_text"
             done
 
-            # 更新 LAST_KEY1 变量，确保下次与当前 KEY1 比较
-            echo "LAST_KEY1=${{ env.KEY1 }}" >> $GITHUB_ENV
-              # 将当前的 expect 值保存到文件
-              echo "$key1" > last_expect.txt
-            # 将当前的 expect 值提交到 Git 仓库
-            git config --global user.name "GitHub Actions"
-            git config --global user.email "actions@github.com"
-            git add last_expect.txt
-            git commit -m "Update last_expect"
-            git push
+            # 将当前的 expect 值存储到缓存文件
+            echo "${{ env.KEY1 }}" > last_expect.txt
+
           else
             echo "Expect has not changed. Skipping push."
           fi
