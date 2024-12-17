@@ -36,7 +36,7 @@ jobs:
           key3=$(echo "$response" | jq -r '.[0].zodiac')      # 提取 zodiac 字段作为 key3
           key4=$(echo "$response" | jq -r '.[0].openTime')    # 提取 openTime 字段作为 key4
           key5=$(echo "$response" | jq -r '.[0].wave')        # 提取 wave 字段作为 key5
-          
+
           # 打印提取的字段，调试用
           echo "key1 (expect): $key1"
           echo "key2 (openCode): $key2"
@@ -44,32 +44,62 @@ jobs:
           echo "key4 (openTime): $key4"
           echo "key5 (wave): $key5"
 
-          # 将字段存储为环境变量
+          # 保存当前字段到环境变量
           echo "KEY1=$key1" >> $GITHUB_ENV
           echo "KEY2=$key2" >> $GITHUB_ENV
           echo "KEY3=$key3" >> $GITHUB_ENV
           echo "KEY4=$key4" >> $GITHUB_ENV
           echo "KEY5=$key5" >> $GITHUB_ENV
 
-      # 2. 判断 expect 是否改变，若改变则执行下一步
+          # 保存当前的 expect 为初始值，如果是首次运行或首次获取数据
+          if [[ ! -f env_vars.json ]]; then
+            echo "{\"KEY1\":\"$key1\"}" > env_vars.json
+            echo "Initial save of KEY1: $key1"
+          fi
+
+      # 2. 上传 Artifact 保存环境变量（只有在第一次或 expect 变化时上传）
+      - name: Upload environment variables as artifact
+        uses: actions/upload-artifact@v3
+        if: success() && steps.fetch_json.outputs.KEY1 != steps.fetch_json.outputs.LAST_KEY1  # 仅在 expect 变化时才上传
+        with:
+          name: env-vars
+          path: env_vars.json
+
+  compare_and_notify:
+    runs-on: ubuntu-latest
+    needs: fetch_and_send  # 依赖于 fetch_and_send 作业
+    name: Compare and Notify if expect changes
+    steps:
+
+      # 1. 下载 Artifact
+      - name: Download environment variables artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: env-vars
+
       - name: Compare expect and Send Bark Message
         run: |
-          # 获取上一步保存的 key1 等值
-          echo "Last key1 (expect): ${{ env.LAST_KEY1 }}"
-          echo "Current key1 (expect): ${{ env.KEY1 }}"
+          # 从下载的 Artifact 中读取 KEY1 等值
+          last_key1=$(jq -r '.KEY1' env_vars.json)
+          current_key1="${{ env.KEY1 }}"  # 当前的 expect，可以通过变量传入或 API 获取
+
+          # 打印比较
+          echo "Last expect (KEY1): $last_key1"
+          echo "Current expect (KEY1): $current_key1"
 
           # 如果 key1 (expect) 改变，发送推送
-          if [[ "${{ env.KEY1 }}" != "${{ env.LAST_KEY1 }}" ]]; then
+          if [[ "$last_key1" != "$current_key1" ]]; then
             echo "expect has changed. Sending data to URL."
 
-            chinese_text="${{ env.KEY1 }}\r\n${{ env.KEY2 }}\r\n${{ env.KEY3 }}\r\n${{ env.KEY4 }}\r\n${{ env.KEY5 }}"
+            # 生成需要发送的消息
+            message="${{ env.KEY1 }}\r\n${{ env.KEY2 }}\r\n${{ env.KEY3 }}\r\n${{ env.KEY4 }}\r\n${{ env.KEY5 }}"
 
             # 使用 Python 进行 URL 编码（更稳定的编码方式）
-            encoded_text=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$chinese_text'''))")        
+            encoded_text=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$message'''))")
 
             # 定义目标 URL 列表
             urls=("https://api.day.app/H9nYt9PJbr6LcBXYaiWPTU")
-            
+
             # 循环发送请求到每个 URL
             for url in "${urls[@]}"
             do
@@ -77,8 +107,11 @@ jobs:
               curl -s "$url/$encoded_text"
             done
 
-            # 更新 LAST_KEY1 变量，确保下次与当前 KEY1 比较
-            echo "LAST_KEY1=${{ env.KEY1 }}" >> $GITHUB_ENV
+            # 更新 LAST_KEY1 变量，确保下次与当前 expect 比较
+            echo "LAST_KEY1=$current_key1" >> $GITHUB_ENV
+
+            # 更新 env_vars.json 保存新值
+            echo "{\"KEY1\":\"$current_key1\"}" > env_vars.json
           else
             echo "expect has not changed. Skipping push."
           fi
