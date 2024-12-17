@@ -51,67 +51,53 @@ jobs:
           echo "KEY4=$key4" >> $GITHUB_ENV
           echo "KEY5=$key5" >> $GITHUB_ENV
 
-          # 保存当前的 expect 为初始值，如果是首次运行或首次获取数据
-          if [[ ! -f env_vars.json ]]; then
-            echo "{\"KEY1\":\"$key1\"}" > env_vars.json
-            echo "Initial save of KEY1: $key1"
-          fi
-
-      # 2. 上传 Artifact 保存环境变量（只有在第一次或 expect 变化时上传）
-      - name: Upload environment variables as artifact
-        uses: actions/upload-artifact@v3
-        if: success() && steps.fetch_json.outputs.KEY1 != steps.fetch_json.outputs.LAST_KEY1  # 仅在 expect 变化时才上传
-        with:
-          name: env-vars
-          path: env_vars.json
-
-  compare_and_notify:
-    runs-on: ubuntu-latest
-    needs: fetch_and_send  # 依赖于 fetch_and_send 作业
-    name: Compare and Notify if expect changes
-    steps:
-
-      # 1. 下载 Artifact
-      - name: Download environment variables artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: env-vars
-
-      - name: Compare expect and Send Bark Message
+      # 2. 检查仓库中是否已有 `env_vars.json`，并与当前数据比较
+      - name: Check if env_vars.json exists
+        id: check_file
         run: |
-          # 从下载的 Artifact 中读取 KEY1 等值
-          last_key1=$(jq -r '.KEY1' env_vars.json)
-          current_key1="${{ env.KEY1 }}"  # 当前的 expect，可以通过变量传入或 API 获取
-
-          # 打印比较
-          echo "Last expect (KEY1): $last_key1"
-          echo "Current expect (KEY1): $current_key1"
-
-          # 如果 key1 (expect) 改变，发送推送
-          if [[ "$last_key1" != "$current_key1" ]]; then
-            echo "expect has changed. Sending data to URL."
-
-            # 生成需要发送的消息
-            message="${{ env.KEY1 }}\r\n${{ env.KEY2 }}\r\n${{ env.KEY3 }}\r\n${{ env.KEY4 }}\r\n${{ env.KEY5 }}"
-
-            # 使用 Python 进行 URL 编码（更稳定的编码方式）
-            encoded_text=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$message'''))")
-
-            # 定义目标 URL 列表
-            urls=("https://api.day.app/H9nYt9PJbr6LcBXYaiWPTU")
-
-            # 循环发送请求到每个 URL
-            for url in "${urls[@]}"
-            do
-              echo "Sending data to $url/$encoded_text"
-              curl -s "$url/$encoded_text"
-            done
-
-            # 更新 LAST_KEY1 变量，确保下次与当前 expect 比较
-            echo "LAST_KEY1=$current_key1" >> $GITHUB_ENV
-
-            # 更新 env_vars.json 保存新值
-            echo "{\"KEY1\":\"$current_key1\"}" > env_vars.json
+          # 检查是否存在 `env_vars.json` 文件
+          if [ -f env_vars.json ]; then
+            echo "env_vars.json exists. Checking for changes..."
+            # 读取仓库中的 KEY1
+            last_key1=$(jq -r '.KEY1' env_vars.json)
+            echo "Last saved KEY1: $last_key1"
+            echo "Current KEY1: ${{ env.KEY1 }}"
           else
-            echo "expect has not changed. Skipping push."
+            echo "env_vars.json does not exist. This is the first run."
+            last_key1=""
           fi
+          echo "LAST_KEY1=$last_key1" >> $GITHUB_ENV
+
+      # 3. 如果 `expect` 变化，则提交更新
+      - name: Commit and push changes if expect has changed
+        if: ${{ env.LAST_KEY1 != env.KEY1 }}  # 只有当 expect 变化时才执行
+        run: |
+          # 如果 expect 变化，将新的数据保存到 env_vars.json 文件中
+          echo "{\"KEY1\":\"${{ env.KEY1 }}\", \"KEY2\":\"${{ env.KEY2 }}\", \"KEY3\":\"${{ env.KEY3 }}\", \"KEY4\":\"${{ env.KEY4 }}\", \"KEY5\":\"${{ env.KEY5 }}\"}" > env_vars.json
+          
+          # 提交更新到仓库
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add env_vars.json
+          git commit -m "Update env_vars.json with new KEY1: ${{ env.KEY1 }}"
+          git push
+
+      # 4. 发送通知
+      - name: Compare expect and Send Bark Message
+        if: ${{ env.LAST_KEY1 != env.KEY1 }}  # 只有在 expect 变化时才发送
+        run: |
+          echo "expect has changed. Sending data to URL."
+          message="${{ env.KEY1 }}\r\n${{ env.KEY2 }}\r\n${{ env.KEY3 }}\r\n${{ env.KEY4 }}\r\n${{ env.KEY5 }}"
+
+          # 使用 Python 进行 URL 编码（更稳定的编码方式）
+          encoded_text=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$message'''))")
+
+          # 定义目标 URL 列表
+          urls=("https://api.day.app/H9nYt9PJbr6LcBXYaiWPTU")
+
+          # 循环发送请求到每个 URL
+          for url in "${urls[@]}"
+          do
+            echo "Sending data to $url/$encoded_text"
+            curl -s "$url/$encoded_text"
+          done
