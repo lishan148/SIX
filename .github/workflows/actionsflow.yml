@@ -2,7 +2,7 @@ name: Fetch JSON and Forward to Multiple URLs Conditionally
 
 on:
   schedule:
-    - cron: "* * * * *"  # 每分钟执行一次
+    - cron: "36 * * * *"  # 每分钟执行一次
   workflow_dispatch:  # 手动触发
   push:  # 推送到 main 分支时触发
     branches:
